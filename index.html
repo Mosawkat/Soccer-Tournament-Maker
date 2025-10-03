@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soccer Tournament Creator</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-trophy"></i> Soccer Tournament Creator</h1>
+            <div class="progress-bar">
+                <div class="progress" id="progress"></div>
+            </div>
+        </header>
+
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="setup">
+                <i class="fas fa-cog"></i> Setup
+            </button>
+            <button class="tab-btn" data-tab="groups" id="groups-tab">
+                <i class="fas fa-users"></i> Groups
+            </button>
+            <button class="tab-btn" data-tab="knockout" id="knockout-tab">
+                <i class="fas fa-sitemap"></i> Knockout
+            </button>
+            <button class="tab-btn" data-tab="schedule" id="schedule-tab">
+                <i class="fas fa-calendar"></i> Schedule
+            </button>
+            <button class="tab-btn" data-tab="live" id="live-tab">
+                <i class="fas fa-play"></i> Live
+            </button>
+            <button class="tab-btn" data-tab="results" id="results-tab">
+                <i class="fas fa-medal"></i> Results
+            </button>
+        </nav>
+
+        <!-- Tab 1: Setup -->
+        <div class="tab-content active" id="setup">
+            <div class="card">
+                <h2>Tournament Setup</h2>
+                <div class="form-group">
+                    <label for="num-teams">Number of Teams *</label>
+                    <input type="number" id="num-teams" min="2" max="64" required>
+                    <span class="help-text">Enter between 2-64 teams</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="players-per-team">Players per Team *</label>
+                    <input type="number" id="players-per-team" min="1" required>
+                    <span class="help-text">Typical: 11 for full field, 5-7 for small sided</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="tournament-format">Tournament Format *</label>
+                    <select id="tournament-format" required>
+                        <option value="">Select format...</option>
+                        <option value="group">Group Stage Only</option>
+                        <option value="knockout">Knockout Only</option>
+                        <option value="both">Group Stage + Knockout</option>
+                    </select>
+                </div>
+
+                <button class="btn btn-primary" id="setup-next">Next <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+
+        <!-- Tab 2: Group Stage -->
+        <div class="tab-content" id="groups">
+            <div class="card">
+                <h2>Group Stage Settings</h2>
+
+                <div class="form-group">
+                    <label for="num-groups">Number of Groups</label>
+                    <input type="number" id="num-groups" min="1" required>
+                    <span class="help-text suggestions" id="groups-suggestion">Suggested based on team count</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="rounds-per-group">Rounds Between Same Teams</label>
+                    <select id="rounds-per-group">
+                        <option value="1">1 (Single Round Robin)</option>
+                        <option value="2">2 (Double Round Robin)</option>
+                        <option value="3">3 (Triple Round Robin)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="teams-advancing">Teams Advancing per Group</label>
+                    <select id="teams-advancing">
+                        <option value="1">Top 1</option>
+                        <option value="2">Top 2</option>
+                        <option value="3">Top 3</option>
+                        <option value="4">Top 4</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="group-game-duration">Group Game Duration (minutes)</label>
+                    <input type="number" id="group-game-duration" min="1" required>
+                </div>
+
+                <div class="scoring-system">
+                    <label>Scoring System</label>
+                    <div class="scoring-grid">
+                        <div>
+                            <label for="win-points">Win</label>
+                            <input type="number" id="win-points" value="3" min="0" style="width: 60px;">
+                        </div>
+                        <div>
+                            <label for="draw-points">Draw</label>
+                            <input type="number" id="draw-points" value="1" min="0" style="width: 60px;">
+                        </div>
+                        <div>
+                            <label for="loss-points">Loss</label>
+                            <input type="number" id="loss-points" value="0" min="0" style="width: 60px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="calculations" id="group-calculations">
+                    Group stage calculations will appear here
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" id="groups-back"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-primary" id="groups-next">Next <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 3: Knockout Stage -->
+        <div class="tab-content" id="knockout">
+            <div class="card">
+                <h2>Knockout Stage Settings</h2>
+
+                <div class="bracket-stages">
+                    <label>Available Stages</label>
+                    <div class="stage-checkboxes">
+                        <label><input type="checkbox" class="stage-checkbox" value="last32"> Last 32</label>
+                        <label><input type="checkbox" class="stage-checkbox" value="last16"> Last 16</label>
+                        <label><input type="checkbox" class="stage-checkbox" value="quarters"> Quarterfinals</label>
+                        <label><input type="checkbox" class="stage-checkbox" value="semis"> Semifinals</label>
+                        <label><input type="checkbox" class="stage-checkbox" value="final"> Final</label>
+                        <label><input type="checkbox" class="stage-checkbox" value="third-place"> 3rd Place Match</label>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="match-format">Match Format</label>
+                    <select id="match-format">
+                        <option value="single">Single Leg</option>
+                        <option value="two-leg">Two Legs (Home & Away)</option>
+                    </select>
+                    <span class="help-text">Final is always single leg</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="knockout-game-duration">Knockout Game Duration (minutes)</label>
+                    <input type="number" id="knockout-game-duration" min="1" required>
+                </div>
+
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="extra-time">
+                        Extra Time & Penalties for Knockout Games
+                    </label>
+                </div>
+
+                <div class="bracket-preview" id="bracket-preview">
+                    Knockout bracket preview will appear here
+                </div>
+
+                <div class="suggestions" id="knockout-suggestion"></div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" id="knockout-back"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-primary" id="knockout-next">Next <i class="fas fa-arrow-right"></i></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 4: Schedule -->
+        <div class="tab-content" id="schedule">
+            <div class="card">
+                <h2>Tournament Schedule</h2>
+
+                <div class="form-group">
+                    <label for="num-fields">Number of Fields *</label>
+                    <input type="number" id="num-fields" min="1" required>
+                    <span class="help-text">Games played simultaneously</span>
+                </div>
+
+                <div class="form-group">
+                    <label for="start-time">Tournament Start Time</label>
+                    <input type="datetime-local" id="start-time">
+                </div>
+
+                <div class="timer-section">
+                    <h3>Universal Timer</h3>
+                    <div class="timer-display" id="timer-display">00:00:00</div>
+                    <div class="timer-controls">
+                        <button class="btn btn-success" id="timer-start"><i class="fas fa-play"></i> Start</button>
+                        <button class="btn btn-secondary" id="timer-pause"><i class="fas fa-pause"></i> Pause</button>
+                        <button class="btn btn-secondary" id="timer-reset"><i class="fas fa-redo"></i> Reset</button>
+                    </div>
+                </div>
+
+                <div class="schedule-summary" id="schedule-summary">
+                    Tournament overview will appear here
+                </div>
+
+                <div style="margin-top: 20px;">
+                    <button class="btn btn-secondary" id="schedule-back"><i class="fas fa-arrow-left"></i> Back</button>
+                    <button class="btn btn-success" id="generate-tournament"><i class="fas fa-check"></i> Generate Tournament</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 5: Live Management -->
+        <div class="tab-content" id="live">
+            <div class="live-header">
+                <h2>Live Tournament Management</h2>
+                <div class="current-time" id="current-time">00:00:00</div>
+            </div>
+
+            <div class="live-grid">
+                <div class="standings-section">
+                    <h3>Group Standings</h3>
+                    <div id="group-standings-container">
+                        No standings available yet
+                    </div>
+                </div>
+
+                <div class="matches-section">
+                    <h3>Current Matches</h3>
+                    <div id="current-matches-container">
+                        No matches in progress
+                    </div>
+                </div>
+
+                <div class="upcoming-section">
+                    <h3>Upcoming Matches</h3>
+                    <div id="upcoming-matches-container">
+                        No upcoming matches
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab 6: Results -->
+        <div class="tab-content" id="results">
+            <div class="results-tabs">
+                <button class="result-tab active" data-result="standings">Final Standings</button>
+                <button class="result-tab" data-result="bracket">Bracket</button>
+                <button class="result-tab" data-result="stats">Statistics</button>
+            </div>
+
+            <div class="result-content active" id="standings-content">
+                <div id="final-standings-container">
+                    Final standings will appear here after tournament completion
+                </div>
+            </div>
+
+            <div class="result-content" id="bracket-content">
+                <div id="bracket-visualization">
+                    Knockout bracket will appear here
+                </div>
+            </div>
+
+            <div class="result-content" id="stats-content">
+                <div id="statistics-container">
+                    Tournament statistics will appear here
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="tournament.js"></script>
+</body>
+</html>
