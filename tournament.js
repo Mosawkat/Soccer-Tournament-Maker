@@ -1,5 +1,4 @@
 // Tournament Manager - Enhanced Version with Match Days & CSV Export
-
 class TournamentManager {
     constructor() {
         this.tournament = {
@@ -96,6 +95,11 @@ class TournamentManager {
         document.querySelectorAll('.result-tab').forEach(tab => {
             tab.addEventListener('click', (e) => this.switchResultsTab(e.target.dataset.result));
         });
+
+        // Score editing modal
+        document.getElementById('score-modal-close')?.addEventListener('click', () => this.closeScoreModal());
+        document.getElementById('score-modal-cancel')?.addEventListener('click', () => this.closeScoreModal());
+        document.getElementById('score-modal-save')?.addEventListener('click', () => this.saveMatchScore());
     }
 
     // Progress tracking
@@ -108,7 +112,7 @@ class TournamentManager {
         if (this.tournament.settings.knockoutStages.length > 0 || this.tournament.settings.format === 'group') progress += 1;
         if (this.tournament.settings.numFields > 0) progress += 1;
         if (this.tournament.matches.length > 0) progress += 1;
-        
+
         const percentage = (progress / steps) * 100;
         const progressBar = document.getElementById('progress');
         if (progressBar) progressBar.style.width = percentage + '%';
@@ -120,6 +124,13 @@ class TournamentManager {
         document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
         document.getElementById(tabName)?.classList.add('active');
         document.querySelector(`[data-tab="${tabName}"]`)?.classList.add('active');
+
+        // Render content when switching to specific tabs
+        if (tabName === 'results') {
+            this.renderFinalStandings();
+            this.renderKnockoutBracket();
+            this.renderStatistics();
+        }
     }
 
     // Setup tab functions
@@ -139,7 +150,7 @@ class TournamentManager {
         const format = this.tournament.settings.format;
         const groupsTab = document.getElementById('groups-tab');
         const knockoutTab = document.getElementById('knockout-tab');
-        
+
         if (format === 'group') {
             groupsTab.style.display = 'flex';
             knockoutTab.style.display = 'none';
@@ -158,7 +169,7 @@ class TournamentManager {
 
         // Smart suggestion considering knockout bracket compatibility
         const suggestions = [];
-        
+
         // For knockout tournaments, suggest groups that create power-of-2 advancing teams
         if (this.tournament.settings.format === 'both') {
             const powerOf2Targets = [4, 8, 16, 32];
@@ -176,7 +187,7 @@ class TournamentManager {
                     }
                 }
             });
-            
+
             if (suggestions.length > 0) {
                 // Get best suggestion (closest to even distribution)
                 const best = suggestions.sort((a, b) => {
@@ -184,7 +195,7 @@ class TournamentManager {
                     const bDiff = Math.abs(b.teamsPerGroup * b.groups - numTeams);
                     return aDiff - bDiff;
                 })[0];
-                
+
                 const suggestionEl = document.getElementById('groups-suggestion');
                 if (suggestionEl) {
                     suggestionEl.textContent = `💡 Recommended: ${best.groups} groups with top ${best.advancing} advancing = ${best.total}-team knockout bracket (perfect for eliminations)`;
@@ -192,7 +203,7 @@ class TournamentManager {
                 return;
             }
         }
-        
+
         // Standard suggestion for group-only format
         let suggested = Math.ceil(Math.sqrt(numTeams));
         for (let i = suggested; i >= 2; i--) {
@@ -201,7 +212,7 @@ class TournamentManager {
                 break;
             }
         }
-        
+
         const suggestionEl = document.getElementById('groups-suggestion');
         if (suggestionEl) {
             suggestionEl.textContent = `💡 Suggested: ${suggested} groups for ${numTeams} teams (~${Math.ceil(numTeams / suggested)} teams per group)`;
@@ -290,10 +301,12 @@ class TournamentManager {
     updateGroupsAdvancingOptions() {
         const numGroups = this.tournament.settings.numGroups;
         const numTeams = this.tournament.settings.numTeams;
+
         if (numGroups === 0 || numTeams === 0) return;
 
         const teamsPerGroup = Math.floor(numTeams / numGroups);
         const advancingSelect = document.getElementById('teams-advancing');
+
         if (advancingSelect) {
             advancingSelect.innerHTML = '';
             for (let i = 1; i <= Math.min(teamsPerGroup, 4); i++) {
@@ -317,7 +330,7 @@ class TournamentManager {
         const gamesPerTeam = (teamsPerGroup - 1) * rounds;
         const totalGamesPerGroup = (teamsPerGroup * (teamsPerGroup - 1) / 2) * rounds;
         const totalGames = totalGamesPerGroup * numGroups;
-        
+
         this.tournament.stats.totalGroupMatches = totalGames;
         this.tournament.stats.groupStageDuration = totalGames * duration;
 
@@ -325,15 +338,13 @@ class TournamentManager {
         if (calcEl) {
             const hours = Math.floor(this.tournament.stats.groupStageDuration / 60);
             const mins = this.tournament.stats.groupStageDuration % 60;
-            
             calcEl.innerHTML = `
-                <h4>📊 Group Stage Summary</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.5rem;">
-                    <div><strong>Teams per group:</strong> ${teamsPerGroup}</div>
-                    <div><strong>Games per team:</strong> ${gamesPerTeam}</div>
-                    <div><strong>Total matches:</strong> ${totalGames}</div>
-                    <div><strong>Total duration:</strong> ${hours}h ${mins}m</div>
-                </div>
+                <strong>📊 Group Stage Calculations:</strong><br>
+                • ${teamsPerGroup} teams per group<br>
+                • ${gamesPerTeam} games per team<br>
+                • ${totalGamesPerGroup} games per group<br>
+                • <strong>${totalGames} total group matches</strong><br>
+                • <strong>Estimated duration: ${hours}h ${mins}m</strong> (${duration} min per game)
             `;
         }
     }
@@ -341,29 +352,32 @@ class TournamentManager {
     suggestKnockoutBracket() {
         const numGroups = this.tournament.settings.numGroups;
         const teamsAdvancing = this.tournament.settings.teamsAdvancing;
-        
+
         if (!numGroups || !teamsAdvancing) return;
 
         const totalAdvancing = numGroups * teamsAdvancing;
-        const nearestPowerOf2 = Math.pow(2, Math.ceil(Math.log2(totalAdvancing)));
-        
-        const suggestionEl = document.getElementById('knockout-suggestion');
-        if (suggestionEl) {
-            if (totalAdvancing === nearestPowerOf2) {
-                suggestionEl.innerHTML = `<strong style="color: #26b46a;">✓ Perfect!</strong> ${totalAdvancing} teams advancing creates a perfect ${nearestPowerOf2}-team bracket`;
+        const knockoutEl = document.getElementById('knockout-suggestion');
+
+        if (knockoutEl) {
+            const isPowerOf2 = (totalAdvancing & (totalAdvancing - 1)) === 0;
+            if (isPowerOf2) {
+                knockoutEl.textContent = `✓ Perfect! ${totalAdvancing} teams advancing creates a balanced knockout bracket`;
+                knockoutEl.style.color = '#26b46a';
             } else {
-                suggestionEl.innerHTML = `⚠️ ${totalAdvancing} teams advancing → ${nearestPowerOf2}-team bracket needed (${nearestPowerOf2 - totalAdvancing} byes required)`;
+                knockoutEl.textContent = `⚠️ ${totalAdvancing} teams advancing may require byes or play-in matches for a bracket`;
+                knockoutEl.style.color = '#ff9800';
             }
         }
     }
 
     validateAndNextGroups() {
         const numGroups = parseInt(document.getElementById('num-groups')?.value);
-        const duration = parseInt(document.getElementById('group-game-duration')?.value);
+        const rounds = parseInt(document.getElementById('rounds-per-group')?.value);
         const teamsAdvancing = parseInt(document.getElementById('teams-advancing')?.value);
+        const duration = parseInt(document.getElementById('group-game-duration')?.value);
 
-        if (!numGroups || numGroups < 1) {
-            alert('Please enter number of groups');
+        if (!numGroups || numGroups < 2 || numGroups > this.tournament.settings.numTeams / 2) {
+            alert('Please enter a valid number of groups');
             return;
         }
 
@@ -373,13 +387,14 @@ class TournamentManager {
         }
 
         this.tournament.settings.numGroups = numGroups;
+        this.tournament.settings.roundsPerGroup = rounds;
+        this.tournament.settings.teamsAdvancing = teamsAdvancing;
         this.tournament.settings.groupGameDuration = duration;
-        this.tournament.settings.teamsAdvancing = teamsAdvancing || 0;
 
         // Assign teams to groups
         this.assignTeamsToGroups();
 
-        // Navigate based on format
+        // Navigate to next tab
         if (this.tournament.settings.format === 'both') {
             this.switchTab('knockout');
         } else {
@@ -393,23 +408,26 @@ class TournamentManager {
         const numGroups = this.tournament.settings.numGroups;
         const teams = this.tournament.teams;
 
-        // Distribute teams evenly across groups (snake draft style for fairness)
-        teams.forEach((team, index) => {
-            team.group = (index % numGroups) + 1;
-        });
-
-        // Create group structures
+        // Create groups
         this.tournament.groups = Array.from({ length: numGroups }, (_, i) => ({
             id: i + 1,
-            name: `Group ${String.fromCharCode(65 + i)}`,
-            teams: teams.filter(t => t.group === i + 1)
+            name: String.fromCharCode(65 + i), // A, B, C, etc.
+            teams: []
         }));
+
+        // Distribute teams evenly across groups (snake draft style for fairness)
+        teams.forEach((team, index) => {
+            const groupIndex = Math.floor(index / Math.ceil(teams.length / numGroups));
+            const group = this.tournament.groups[Math.min(groupIndex, numGroups - 1)];
+            team.group = group.id;
+            team.groupName = group.name;
+            group.teams.push(team);
+        });
     }
 
-    // Knockout stage functions
+    // Knockout tab functions
     updateMatchFormat(format) {
         this.tournament.settings.matchFormat = format;
-        this.calculateKnockoutStats();
     }
 
     updateKnockoutDuration(duration) {
@@ -423,23 +441,20 @@ class TournamentManager {
 
     updateKnockoutStages() {
         const stages = [];
-        document.querySelectorAll('.stage-checkbox:checked').forEach(checkbox => {
-            stages.push(checkbox.value);
+        document.querySelectorAll('.stage-checkbox:checked').forEach(cb => {
+            stages.push(cb.value);
         });
         this.tournament.settings.knockoutStages = stages;
         this.calculateKnockoutStats();
-        this.updateProgress();
     }
 
     calculateKnockoutStats() {
         const stages = this.tournament.settings.knockoutStages;
-        const matchFormat = this.tournament.settings.matchFormat;
         const duration = this.tournament.settings.knockoutGameDuration;
-
-        if (stages.length === 0) return;
+        const matchFormat = this.tournament.settings.matchFormat;
 
         let totalMatches = 0;
-        const stageGames = {
+        const stageData = {
             'last32': 16,
             'last16': 8,
             'quarters': 4,
@@ -449,26 +464,34 @@ class TournamentManager {
         };
 
         stages.forEach(stage => {
-            const games = stageGames[stage] || 0;
-            totalMatches += games * (matchFormat === 'two-leg' && stage !== 'final' ? 2 : 1);
+            const matches = stageData[stage] || 0;
+            const legs = matchFormat === 'two-leg' && stage !== 'final' && stage !== 'third-place' ? 2 : 1;
+            totalMatches += matches * legs;
         });
-        
+
         this.tournament.stats.totalKnockoutMatches = totalMatches;
         this.tournament.stats.knockoutDuration = totalMatches * duration;
 
-        const bracketEl = document.getElementById('bracket-preview');
-        if (bracketEl) {
+        const previewEl = document.getElementById('knockout-preview');
+        if (previewEl && stages.length > 0) {
             const hours = Math.floor(this.tournament.stats.knockoutDuration / 60);
             const mins = this.tournament.stats.knockoutDuration % 60;
-            
-            bracketEl.innerHTML = `
-                <h4>🏆 Knockout Stage Summary</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 0.5rem;">
-                    <div><strong>Total matches:</strong> ${totalMatches}</div>
-                    <div><strong>Format:</strong> ${matchFormat === 'two-leg' ? 'Two-legged' : 'Single'}</div>
-                    <div><strong>Total duration:</strong> ${hours}h ${mins}m</div>
-                </div>
+
+            previewEl.innerHTML = `
+                <strong>🏆 Knockout Stage Preview:</strong><br>
+                • ${stages.length} stage(s) selected<br>
+                • ${matchFormat === 'two-leg' ? 'Two-leg' : 'Single-leg'} format${matchFormat === 'two-leg' ? ' (final always single)' : ''}<br>
+                • <strong>${totalMatches} total knockout matches</strong><br>
+                • <strong>Estimated duration: ${hours}h ${mins}m</strong> (${duration} min per game)
             `;
+        }
+    }
+
+    goBackFromKnockout() {
+        if (this.tournament.settings.format === 'both') {
+            this.switchTab('groups');
+        } else {
+            this.switchTab('setup');
         }
     }
 
@@ -491,87 +514,55 @@ class TournamentManager {
         this.updateProgress();
     }
 
-    goBackFromKnockout() {
-        if (this.tournament.settings.format === 'both') {
-            this.switchTab('groups');
-        } else {
-            this.switchTab('setup');
+    // Schedule tab functions
+    updateFields(count) {
+        this.tournament.settings.numFields = parseInt(count) || 0;
+        this.updateScheduleSummary();
+    }
+
+    updateStartTime(time) {
+        this.tournament.settings.startTime = time;
+        this.updateScheduleSummary();
+    }
+
+    updateScheduleSummary() {
+        const numFields = this.tournament.settings.numFields;
+        const startTime = this.tournament.settings.startTime;
+        const totalMatches = this.tournament.stats.totalGroupMatches + this.tournament.stats.totalKnockoutMatches;
+        const totalDuration = this.tournament.stats.groupStageDuration + this.tournament.stats.knockoutDuration;
+
+        const summaryEl = document.getElementById('schedule-summary');
+        if (summaryEl && numFields > 0) {
+            const parallelRounds = Math.ceil(totalMatches / numFields);
+            const actualDuration = parallelRounds * (totalDuration / (totalMatches || 1));
+            const hours = Math.floor(actualDuration / 60);
+            const mins = Math.round(actualDuration % 60);
+
+            summaryEl.innerHTML = `
+                <strong>📅 Tournament Overview:</strong><br>
+                • ${totalMatches} total matches across ${numFields} field(s)<br>
+                • ${parallelRounds} rounds of matches<br>
+                • <strong>Estimated completion: ${hours}h ${mins}m</strong><br>
+                ${startTime ? `• Start time: ${startTime}` : ''}
+                ${numFields < this.tournament.settings.numGroups ? '<br>⚠️ Warning: Fewer fields than groups may cause scheduling delays' : ''}
+            `;
         }
     }
 
     goBackFromSchedule() {
         if (this.tournament.settings.format === 'knockout') {
             this.switchTab('knockout');
-        } else if (this.tournament.settings.format === 'group') {
-            this.switchTab('groups');
-        } else {
+        } else if (this.tournament.settings.format === 'both') {
             this.switchTab('knockout');
-        }
-    }
-
-    // Schedule tab functions
-    updateFields(count) {
-        this.tournament.settings.numFields = parseInt(count) || 0;
-        this.calculateTournamentSchedule();
-    }
-
-    updateStartTime(time) {
-        this.tournament.settings.startTime = time;
-    }
-
-    calculateTournamentSchedule() {
-        const numFields = this.tournament.settings.numFields;
-        if (!numFields) return;
-
-        const totalGroupDuration = this.tournament.stats.groupStageDuration;
-        const totalKnockoutDuration = this.tournament.stats.knockoutDuration;
-        const totalDuration = totalGroupDuration + totalKnockoutDuration;
-        
-        const totalMatches = this.tournament.stats.totalGroupMatches + this.tournament.stats.totalKnockoutMatches;
-
-        const scheduleEl = document.getElementById('schedule-summary');
-        if (scheduleEl) {
-            const totalHours = Math.floor(totalDuration / 60);
-            const totalMins = totalDuration % 60;
-            const groupHours = Math.floor(totalGroupDuration / 60);
-            const groupMins = totalGroupDuration % 60;
-            const knockoutHours = Math.floor(totalKnockoutDuration / 60);
-            const knockoutMins = totalKnockoutDuration % 60;
-            
-            const matchDays = Math.ceil(totalMatches / numFields);
-            
-            scheduleEl.innerHTML = `
-                <h4>📅 Tournament Overview</h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                    <div style="background: #e8f0fe; padding: 1rem; border-radius: 8px;">
-                        <strong style="display: block; margin-bottom: 0.5rem; color: #1d6ae5;">Total Tournament</strong>
-                        <div>${totalMatches} matches</div>
-                        <div>${totalHours}h ${totalMins}m</div>
-                        <div>${matchDays} match days</div>
-                    </div>
-                    ${this.tournament.settings.format !== 'knockout' ? `
-                    <div style="background: #f0fdf4; padding: 1rem; border-radius: 8px;">
-                        <strong style="display: block; margin-bottom: 0.5rem; color: #26b46a;">Group Stage</strong>
-                        <div>${this.tournament.stats.totalGroupMatches} matches</div>
-                        <div>${groupHours}h ${groupMins}m</div>
-                    </div>
-                    ` : ''}
-                    ${this.tournament.settings.format !== 'group' ? `
-                    <div style="background: #fef3f2; padding: 1rem; border-radius: 8px;">
-                        <strong style="display: block; margin-bottom: 0.5rem; color: #dc2626;">Knockout Stage</strong>
-                        <div>${this.tournament.stats.totalKnockoutMatches} matches</div>
-                        <div>${knockoutHours}h ${knockoutMins}m</div>
-                    </div>
-                    ` : ''}
-                </div>
-                ${numFields < this.tournament.settings.numGroups ? '<p style="color: #dc2626; margin-top: 1rem;">⚠️ Warning: Fewer fields than groups may cause scheduling delays</p>' : ''}
-            `;
+        } else {
+            this.switchTab('groups');
         }
     }
 
     // Timer functions
     startTimer() {
         if (this.timerRunning) return;
+
         this.timerRunning = true;
         this.timerInterval = setInterval(() => {
             this.timerSeconds++;
@@ -597,8 +588,9 @@ class TournamentManager {
         const hours = Math.floor(this.timerSeconds / 3600);
         const minutes = Math.floor((this.timerSeconds % 3600) / 60);
         const seconds = this.timerSeconds % 60;
+
         const display = `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
-        
+
         const timerDisplays = document.querySelectorAll('.timer-display');
         timerDisplays.forEach(el => el.textContent = display);
     }
@@ -606,12 +598,16 @@ class TournamentManager {
     // Tournament generation
     generateTournament() {
         const numFields = parseInt(document.getElementById('num-fields')?.value);
+
         if (!numFields || numFields < 1) {
             alert('Please enter number of fields');
             return;
         }
 
         this.tournament.settings.numFields = numFields;
+
+        // Clear existing matches
+        this.tournament.matches = [];
 
         // Generate group stage matches
         if (this.tournament.settings.format !== 'knockout') {
@@ -622,7 +618,7 @@ class TournamentManager {
         if (this.tournament.settings.format !== 'group') {
             this.generateKnockoutBracket();
         }
-        
+
         // Organize matches into match days
         this.organizeMatchDays();
 
@@ -630,7 +626,7 @@ class TournamentManager {
         this.switchTab('schedule');
         this.renderSchedule();
         this.updateProgress();
-        
+
         alert('✓ Tournament generated successfully! Check the Schedule tab to see match days.');
     }
 
@@ -638,37 +634,42 @@ class TournamentManager {
         const rounds = this.tournament.settings.roundsPerGroup;
         let matchId = 1;
 
+        // Generate all matches for each group first
+        const groupMatches = [];
+
         this.tournament.groups.forEach(group => {
             const teams = group.teams;
             const n = teams.length;
 
             if (n < 2) return;
 
+            const matches = [];
+
             // Generate round-robin fixtures using circle method
             for (let round = 0; round < rounds; round++) {
                 for (let i = 0; i < n - 1; i++) {
-                    const roundMatches = [];
                     for (let j = 0; j < Math.floor(n / 2); j++) {
                         let home = (i + j) % (n - 1);
                         let away = (n - 1 - j + i) % (n - 1);
-                        
+
                         if (j === 0) {
                             home = n - 1;
                         }
-                        
+
                         if (away === n - 1) {
                             away = home;
                             home = n - 1;
                         }
-                        
+
                         const homeTeam = teams[home];
                         const awayTeam = teams[away];
 
-                        this.tournament.matches.push({
+                        matches.push({
                             id: matchId++,
                             group: group.id,
                             groupName: group.name,
                             round: round + 1,
+                            matchdayWithinGroup: i + 1,
                             stage: 'group',
                             homeTeam: homeTeam,
                             awayTeam: awayTeam,
@@ -683,7 +684,24 @@ class TournamentManager {
                     }
                 }
             }
+
+            groupMatches.push({
+                groupId: group.id,
+                groupName: group.name,
+                matches: matches
+            });
         });
+
+        // Now interleave matches so all groups play simultaneously/alternating
+        const maxMatchesPerGroup = Math.max(...groupMatches.map(g => g.matches.length));
+        
+        for (let matchIndex = 0; matchIndex < maxMatchesPerGroup; matchIndex++) {
+            groupMatches.forEach(group => {
+                if (matchIndex < group.matches.length) {
+                    this.tournament.matches.push(group.matches[matchIndex]);
+                }
+            });
+        }
     }
 
     generateKnockoutBracket() {
@@ -691,16 +709,11 @@ class TournamentManager {
 
         // Get teams from group stage or use all teams
         if (this.tournament.settings.format === 'both') {
-            this.tournament.groups.forEach(group => {
-                const sorted = group.teams
-                    .sort((a, b) => {
-                        if (b.points !== a.points) return b.points - a.points;
-                        if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
-                        return b.goalsFor - a.goalsFor;
-                    })
-                    .slice(0, this.tournament.settings.teamsAdvancing);
-                teams.push(...sorted);
-            });
+            // Will be populated after group stage completion
+            teams = Array.from({ length: this.tournament.settings.numGroups * this.tournament.settings.teamsAdvancing }, (_, i) => ({
+                id: 0,
+                name: 'TBD'
+            }));
         } else {
             teams = [...this.tournament.teams];
         }
@@ -709,8 +722,12 @@ class TournamentManager {
         let matchId = this.tournament.matches.length + 1;
         const stages = this.tournament.settings.knockoutStages;
         const matchFormat = this.tournament.settings.matchFormat;
-        
-        stages.forEach(stage => {
+
+        // Sort stages in proper order
+        const stageOrder = ['last32', 'last16', 'quarters', 'semis', 'third-place', 'final'];
+        const sortedStages = stages.sort((a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b));
+
+        sortedStages.forEach(stage => {
             const stageData = {
                 'last32': { name: 'Round of 32', teams: 32 },
                 'last16': { name: 'Round of 16', teams: 16 },
@@ -719,13 +736,13 @@ class TournamentManager {
                 'final': { name: 'Final', teams: 2 },
                 'third-place': { name: '3rd Place', teams: 2 }
             };
-            
+
             const info = stageData[stage];
             if (!info) return;
-            
+
             const numMatches = stage === 'third-place' || stage === 'final' ? 1 : info.teams / 2;
-            const legs = matchFormat === 'two-leg' && stage !== 'final' ? 2 : 1;
-            
+            const legs = matchFormat === 'two-leg' && stage !== 'final' && stage !== 'third-place' ? 2 : 1;
+
             for (let leg = 1; leg <= legs; leg++) {
                 for (let i = 0; i < numMatches; i++) {
                     this.tournament.matches.push({
@@ -751,35 +768,227 @@ class TournamentManager {
 
         this.tournament.knockoutBracket = {
             teams: teams,
-            stages: stages
+            stages: sortedStages
         };
     }
 
     organizeMatchDays() {
         const numFields = this.tournament.settings.numFields;
         const matches = this.tournament.matches;
-        
         this.tournament.matchDays = [];
+
+        // Separate group and knockout matches
+        const groupMatches = matches.filter(m => m.stage === 'group');
+        const knockoutMatches = matches.filter(m => m.stage === 'knockout');
+
         let dayNumber = 1;
-        let matchIndex = 0;
-        
-        while (matchIndex < matches.length) {
-            const dayMatches = matches.slice(matchIndex, matchIndex + numFields);
+
+        // Organize group stage matches
+        if (groupMatches.length > 0) {
+            const numGroups = this.tournament.settings.numGroups;
             
-            dayMatches.forEach((match, i) => {
-                match.matchDay = dayNumber;
-                match.field = (i % numFields) + 1;
-            });
-            
-            this.tournament.matchDays.push({
-                day: dayNumber,
-                matches: dayMatches,
-                stage: dayMatches[0].stage
-            });
-            
-            matchIndex += numFields;
-            dayNumber++;
+            // Group matches are already interleaved, so we just need to organize them by match days
+            let matchIndex = 0;
+
+            while (matchIndex < groupMatches.length) {
+                const dayMatches = groupMatches.slice(matchIndex, matchIndex + numFields);
+
+                dayMatches.forEach((match, i) => {
+                    match.matchDay = dayNumber;
+                    match.field = (i % numFields) + 1;
+                });
+
+                this.tournament.matchDays.push({
+                    day: dayNumber,
+                    matches: dayMatches,
+                    stage: 'group'
+                });
+
+                matchIndex += numFields;
+                dayNumber++;
+            }
         }
+
+        // Organize knockout matches
+        if (knockoutMatches.length > 0) {
+            let matchIndex = 0;
+
+            while (matchIndex < knockoutMatches.length) {
+                const dayMatches = knockoutMatches.slice(matchIndex, matchIndex + numFields);
+
+                dayMatches.forEach((match, i) => {
+                    match.matchDay = dayNumber;
+                    match.field = (i % numFields) + 1;
+                });
+
+                this.tournament.matchDays.push({
+                    day: dayNumber,
+                    matches: dayMatches,
+                    stage: 'knockout'
+                });
+
+                matchIndex += numFields;
+                dayNumber++;
+            }
+        }
+    }
+
+    // Score editing functions
+    openScoreModal(matchId) {
+        const match = this.tournament.matches.find(m => m.id === matchId);
+        if (!match) return;
+
+        this.currentEditingMatch = match;
+
+        // Populate modal
+        document.getElementById('score-modal-match-title').textContent = 
+            match.stage === 'group' 
+                ? `Group ${match.groupName} - ${match.homeTeam.name} vs ${match.awayTeam.name}`
+                : `${match.stageName} - ${match.homeTeam.name} vs ${match.awayTeam.name}`;
+
+        document.getElementById('score-home-team').textContent = match.homeTeam.name;
+        document.getElementById('score-away-team').textContent = match.awayTeam.name;
+        document.getElementById('score-home-input').value = match.homeScore !== null ? match.homeScore : '';
+        document.getElementById('score-away-input').value = match.awayScore !== null ? match.awayScore : '';
+
+        // Show modal
+        document.getElementById('score-modal').style.display = 'flex';
+    }
+
+    closeScoreModal() {
+        document.getElementById('score-modal').style.display = 'none';
+        this.currentEditingMatch = null;
+    }
+
+    saveMatchScore() {
+        if (!this.currentEditingMatch) return;
+
+        const homeScore = parseInt(document.getElementById('score-home-input').value);
+        const awayScore = parseInt(document.getElementById('score-away-input').value);
+
+        if (isNaN(homeScore) || isNaN(awayScore) || homeScore < 0 || awayScore < 0) {
+            alert('Please enter valid scores (0 or greater)');
+            return;
+        }
+
+        const match = this.currentEditingMatch;
+
+        // Revert previous score effects if match was already scored
+        if (match.homeScore !== null && match.awayScore !== null && match.stage === 'group') {
+            this.revertMatchStats(match);
+        }
+
+        // Update match score
+        match.homeScore = homeScore;
+        match.awayScore = awayScore;
+        match.status = 'completed';
+
+        // Update team statistics for group stage matches
+        if (match.stage === 'group') {
+            this.updateTeamStats(match);
+        }
+
+        // Update knockout bracket progression
+        if (match.stage === 'knockout') {
+            this.updateKnockoutProgression(match);
+        }
+
+        // Re-render relevant sections
+        this.renderSchedule();
+        this.renderLiveView();
+        this.renderFinalStandings();
+        this.renderKnockoutBracket();
+        this.renderStatistics();
+
+        this.closeScoreModal();
+    }
+
+    revertMatchStats(match) {
+        const homeTeam = match.homeTeam;
+        const awayTeam = match.awayTeam;
+        const oldHomeScore = match.homeScore;
+        const oldAwayScore = match.awayScore;
+
+        homeTeam.played--;
+        awayTeam.played--;
+
+        homeTeam.goalsFor -= oldHomeScore;
+        homeTeam.goalsAgainst -= oldAwayScore;
+        awayTeam.goalsFor -= oldAwayScore;
+        awayTeam.goalsAgainst -= oldHomeScore;
+
+        if (oldHomeScore > oldAwayScore) {
+            homeTeam.wins--;
+            homeTeam.points -= this.tournament.settings.scoringSystem.win;
+            awayTeam.losses--;
+            awayTeam.points -= this.tournament.settings.scoringSystem.loss;
+        } else if (oldHomeScore < oldAwayScore) {
+            awayTeam.wins--;
+            awayTeam.points -= this.tournament.settings.scoringSystem.win;
+            homeTeam.losses--;
+            homeTeam.points -= this.tournament.settings.scoringSystem.loss;
+        } else {
+            homeTeam.draws--;
+            awayTeam.draws--;
+            homeTeam.points -= this.tournament.settings.scoringSystem.draw;
+            awayTeam.points -= this.tournament.settings.scoringSystem.draw;
+        }
+
+        homeTeam.goalDifference = homeTeam.goalsFor - homeTeam.goalsAgainst;
+        awayTeam.goalDifference = awayTeam.goalsFor - awayTeam.goalsAgainst;
+    }
+
+    updateTeamStats(match) {
+        const homeTeam = match.homeTeam;
+        const awayTeam = match.awayTeam;
+        const homeScore = match.homeScore;
+        const awayScore = match.awayScore;
+
+        // Update games played
+        homeTeam.played++;
+        awayTeam.played++;
+
+        // Update goals
+        homeTeam.goalsFor += homeScore;
+        homeTeam.goalsAgainst += awayScore;
+        awayTeam.goalsFor += awayScore;
+        awayTeam.goalsAgainst += homeScore;
+
+        // Update results and points
+        if (homeScore > awayScore) {
+            homeTeam.wins++;
+            homeTeam.points += this.tournament.settings.scoringSystem.win;
+            awayTeam.losses++;
+            awayTeam.points += this.tournament.settings.scoringSystem.loss;
+        } else if (homeScore < awayScore) {
+            awayTeam.wins++;
+            awayTeam.points += this.tournament.settings.scoringSystem.win;
+            homeTeam.losses++;
+            homeTeam.points += this.tournament.settings.scoringSystem.loss;
+        } else {
+            homeTeam.draws++;
+            awayTeam.draws++;
+            homeTeam.points += this.tournament.settings.scoringSystem.draw;
+            awayTeam.points += this.tournament.settings.scoringSystem.draw;
+        }
+
+        // Update goal difference
+        homeTeam.goalDifference = homeTeam.goalsFor - homeTeam.goalsAgainst;
+        awayTeam.goalDifference = awayTeam.goalsFor - awayTeam.goalsAgainst;
+    }
+
+    updateKnockoutProgression(match) {
+        // Determine winner
+        let winner = null;
+        if (match.homeScore > match.awayScore) {
+            winner = match.homeTeam;
+        } else if (match.awayScore > match.homeScore) {
+            winner = match.awayTeam;
+        }
+
+        // For now, just mark the match as completed
+        // Full bracket progression would require more complex logic
+        match.winner = winner;
     }
 
     // Rendering functions
@@ -788,74 +997,116 @@ class TournamentManager {
         if (!container) return;
 
         if (this.tournament.matchDays.length === 0) {
-            container.innerHTML = '<p>No matches scheduled yet. Click "Generate Tournament" to create the schedule.</p>';
+            container.innerHTML = `
+                <div class="card" style="text-align: center; padding: 3rem;">
+                    <p style="font-size: 1.2rem; color: #666;">No matches scheduled yet. Click "Generate Tournament" to create the schedule.</p>
+                </div>
+            `;
             return;
         }
 
-        let html = '<div class="match-days-container">';
-        
-        this.tournament.matchDays.forEach(matchDay => {
-            const stageLabel = matchDay.stage === 'group' ? 'Group Stage' : 'Knockout Stage';
-            const stageBadge = matchDay.stage === 'group' ? 
-                '<span style="background: #26b46a; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;">GROUP</span>' :
-                '<span style="background: #dc2626; color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85rem;">KNOCKOUT</span>';
-            
-            html += `
-                <div class="match-day-card">
-                    <div class="match-day-header">
-                        <h3>Match Day ${matchDay.day}</h3>
-                        ${stageBadge}
-                    </div>
-                    <div class="match-day-matches">
-            `;
-            
-            matchDay.matches.forEach(match => {
-                const groupLabel = match.stage === 'group' ? `${match.groupName} - Round ${match.round}` : match.stageName;
-                const legLabel = match.leg ? ` (Leg ${match.leg})` : '';
-                
-                html += `
-                    <div class="schedule-match-card">
-                        <div class="match-field">Field ${match.field}</div>
-                        <div class="match-details">
-                            <div class="match-label">${groupLabel}${legLabel}</div>
-                            <div class="match-teams">
-                                <span class="team-name">${match.homeTeam.name}</span>
-                                <span class="vs">vs</span>
-                                <span class="team-name">${match.awayTeam.name}</span>
-                            </div>
-                            <div class="match-duration">${match.duration} minutes</div>
-                        </div>
-                    </div>
-                `;
+        // Separate group and knockout matches
+        const groupMatches = this.tournament.matches.filter(m => m.stage === 'group');
+        const knockoutMatches = this.tournament.matches.filter(m => m.stage === 'knockout');
+
+        let html = '';
+
+        // Group Stage Section
+        if (groupMatches.length > 0) {
+            html += '<div class="schedule-section"><h2 class="schedule-section-title">⚽ Group Stage</h2>';
+            html += '<div class="match-days-container">';
+
+            const groupDays = this.tournament.matchDays.filter(md => md.stage === 'group');
+            groupDays.forEach(matchDay => {
+                html += this.renderMatchDayCard(matchDay);
             });
-            
-            html += `
-                    </div>
-                </div>
-            `;
-        });
-        
-        html += '</div>';
-        
+
+            html += '</div></div>';
+        }
+
+        // Knockout Stage Section
+        if (knockoutMatches.length > 0) {
+            html += '<div class="schedule-section"><h2 class="schedule-section-title">🏆 Knockout Stage</h2>';
+            html += '<div class="match-days-container">';
+
+            const knockoutDays = this.tournament.matchDays.filter(md => md.stage === 'knockout');
+            knockoutDays.forEach(matchDay => {
+                html += this.renderMatchDayCard(matchDay);
+            });
+
+            html += '</div></div>';
+        }
+
         container.innerHTML = html;
     }
 
+    renderMatchDayCard(matchDay) {
+        const numFields = this.tournament.settings.numFields;
+        const subtitle = numFields === 1 
+            ? 'Games played at the same time' 
+            : `${matchDay.matches.length} ${matchDay.matches.length === 1 ? 'game' : 'games'} played simultaneously`;
+
+        let html = `
+            <div class="match-day-card">
+                <div class="match-day-header">
+                    <h3>Match Day ${matchDay.day}</h3>
+                    <span>${subtitle}</span>
+                </div>
+                <div class="match-day-matches">
+        `;
+
+        matchDay.matches.forEach(match => {
+            const scoreDisplay = match.homeScore !== null && match.awayScore !== null
+                ? `<div class="match-score-display"><span class="score">${match.homeScore}</span> - <span class="score">${match.awayScore}</span></div>`
+                : '<div class="match-score-display" style="color: #999;">Not played</div>';
+
+            html += `
+                <div class="schedule-match-card">
+                    <div class="match-field">Field ${match.field}</div>
+                    <div class="match-label">
+                        ${match.stage === 'group' 
+                            ? `Group ${match.groupName}${match.round ? ` - Round ${match.round}` : ''}`
+                            : `${match.stageName}${match.leg ? ` (Leg ${match.leg})` : ''}`}
+                    </div>
+                    <div class="match-teams">
+                        <span class="team-name">${match.homeTeam.name}</span>
+                        <span class="vs">vs</span>
+                        <span class="team-name">${match.awayTeam.name}</span>
+                    </div>
+                    ${scoreDisplay}
+                    <div class="match-duration">${match.duration} minutes</div>
+                    <button class="btn btn-small btn-primary" onclick="manager.openScoreModal(${match.id})" style="margin-top: 0.5rem; width: 100%;">
+                        ${match.homeScore !== null ? '✏️ Edit Score' : '⚽ Enter Score'}
+                    </button>
+                </div>
+            `;
+        });
+
+        html += `
+                </div>
+            </div>
+        `;
+
+        return html;
+    }
+
     renderLiveView() {
-        this.renderGroupStandings();
+        this.renderLiveStandings();
         this.renderCurrentMatches();
         this.renderUpcomingMatches();
     }
 
-    renderGroupStandings() {
-        const container = document.getElementById('group-standings-container');
+    renderLiveStandings() {
+        const container = document.getElementById('live-standings');
         if (!container) return;
 
         if (this.tournament.groups.length === 0) {
-            container.innerHTML = '<p>No group standings available</p>';
+            container.innerHTML = '<p style="color: #666;">No group standings available</p>';
             return;
         }
 
         let html = '';
+
         this.tournament.groups.forEach(group => {
             const sorted = group.teams.sort((a, b) => {
                 if (b.points !== a.points) return b.points - a.points;
@@ -865,7 +1116,7 @@ class TournamentManager {
 
             html += `
                 <div class="group-standings">
-                    <h4>${group.name}</h4>
+                    <h4>Group ${group.name}</h4>
                     <table>
                         <thead>
                             <tr>
@@ -882,20 +1133,27 @@ class TournamentManager {
                             </tr>
                         </thead>
                         <tbody>
-                            ${sorted.map((team, i) => `
-                                <tr class="${i < this.tournament.settings.teamsAdvancing ? 'qualified' : ''}">
-                                    <td>${i + 1}</td>
-                                    <td style="text-align: left;">${team.name}</td>
-                                    <td>${team.played}</td>
-                                    <td>${team.wins}</td>
-                                    <td>${team.draws}</td>
-                                    <td>${team.losses}</td>
-                                    <td>${team.goalsFor}</td>
-                                    <td>${team.goalsAgainst}</td>
-                                    <td>${team.goalDifference >= 0 ? '+' : ''}${team.goalDifference}</td>
-                                    <td><strong>${team.points}</strong></td>
-                                </tr>
-                            `).join('')}
+            `;
+
+            sorted.forEach((team, i) => {
+                const qualified = i < this.tournament.settings.teamsAdvancing ? 'class="qualified"' : '';
+                html += `
+                    <tr ${qualified}>
+                        <td>${i + 1}</td>
+                        <td>${team.name}</td>
+                        <td>${team.played}</td>
+                        <td>${team.wins}</td>
+                        <td>${team.draws}</td>
+                        <td>${team.losses}</td>
+                        <td>${team.goalsFor}</td>
+                        <td>${team.goalsAgainst}</td>
+                        <td>${team.goalDifference >= 0 ? '+' : ''}${team.goalDifference}</td>
+                        <td><strong>${team.points}</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += `
                         </tbody>
                     </table>
                 </div>
@@ -906,26 +1164,31 @@ class TournamentManager {
     }
 
     renderCurrentMatches() {
-        const container = document.getElementById('current-matches');
+        const container = document.getElementById('live-current');
         if (!container) return;
 
         const currentMatches = this.tournament.matches.filter(m => m.status === 'in-progress');
-        
+
         if (currentMatches.length === 0) {
-            container.innerHTML = '<p>No matches currently in progress</p>';
+            container.innerHTML = '<p style="color: #666;">No matches currently in progress</p>';
             return;
         }
 
         const html = currentMatches.map(match => `
             <div class="match-card">
                 <div class="match-info">
-                    ${match.stage === 'group' ? `${match.groupName} - Round ${match.round}` : match.stageName}
-                    ${match.field ? `<span style="color: #666;"> • Field ${match.field}</span>` : ''}
+                    ${match.stage === 'group' ? `Group ${match.groupName}` : match.stageName} • Field ${match.field}
                 </div>
                 <div class="match-score">
-                    <div>${match.homeTeam.name}</div>
-                    <div class="score">${match.homeScore ?? '-'} : ${match.awayScore ?? '-'}</div>
-                    <div>${match.awayTeam.name}</div>
+                    <div>
+                        <div class="team-name">${match.homeTeam.name}</div>
+                        <div class="score">${match.homeScore !== null ? match.homeScore : 0}</div>
+                    </div>
+                    <div style="text-align: center; color: #999;">LIVE</div>
+                    <div style="text-align: right;">
+                        <div class="team-name">${match.awayTeam.name}</div>
+                        <div class="score">${match.awayScore !== null ? match.awayScore : 0}</div>
+                    </div>
                 </div>
             </div>
         `).join('');
@@ -934,27 +1197,25 @@ class TournamentManager {
     }
 
     renderUpcomingMatches() {
-        const container = document.getElementById('upcoming-matches');
+        const container = document.getElementById('live-upcoming');
         if (!container) return;
 
         const upcomingMatches = this.tournament.matches
             .filter(m => m.status === 'scheduled')
             .slice(0, 5);
-        
+
         if (upcomingMatches.length === 0) {
-            container.innerHTML = '<p>No upcoming matches</p>';
+            container.innerHTML = '<p style="color: #666;">No upcoming matches</p>';
             return;
         }
 
         const html = upcomingMatches.map(match => `
             <div class="match-card">
                 <div class="match-info">
-                    ${match.stage === 'group' ? `${match.groupName} - Round ${match.round}` : match.stageName}
-                    ${match.matchDay ? `<span style="color: #666;"> • Day ${match.matchDay}</span>` : ''}
-                    ${match.field ? `<span style="color: #666;"> • Field ${match.field}</span>` : ''}
+                    ${match.stage === 'group' ? `Group ${match.groupName}` : match.stageName} • Field ${match.field}
                 </div>
                 <div class="match-teams">
-                    ${match.homeTeam.name} <strong>vs</strong> ${match.awayTeam.name}
+                    ${match.homeTeam.name} <span class="vs">vs</span> ${match.awayTeam.name}
                 </div>
             </div>
         `).join('');
@@ -962,51 +1223,192 @@ class TournamentManager {
         container.innerHTML = html;
     }
 
-    // Results tab
-    switchResultsTab(tabName) {
+    // Results tab functions
+    switchResultsTab(tab) {
         document.querySelectorAll('.result-content').forEach(content => content.classList.remove('active'));
         document.querySelectorAll('.result-tab').forEach(btn => btn.classList.remove('active'));
         
-        document.getElementById(tabName + '-content')?.classList.add('active');
-        document.querySelector(`[data-result="${tabName}"]`)?.classList.add('active');
+        document.getElementById(`${tab}-content`)?.classList.add('active');
+        document.querySelector(`[data-result="${tab}"]`)?.classList.add('active');
 
-        if (tabName === 'standings') this.renderFinalStandings();
-        if (tabName === 'bracket') this.renderBracket();
-        if (tabName === 'statistics') this.renderStatistics();
+        // Render the selected tab
+        if (tab === 'standings') {
+            this.renderFinalStandings();
+        } else if (tab === 'bracket') {
+            this.renderKnockoutBracket();
+        } else if (tab === 'stats') {
+            this.renderStatistics();
+        }
     }
 
     renderFinalStandings() {
-        this.renderGroupStandings();
+        const container = document.getElementById('final-standings');
+        if (!container) return;
+
+        if (this.tournament.groups.length === 0) {
+            container.innerHTML = '<p style="color: #666;">No group standings available</p>';
+            return;
+        }
+
+        let html = '<div class="export-buttons-container">';
+        html += '<button class="btn btn-primary" onclick="manager.exportStandingsCSV()">📥 Export Standings</button>';
+        html += '<button class="btn btn-primary" onclick="manager.exportResultsCSV()">📥 Export Results</button>';
+        html += '</div>';
+
+        this.tournament.groups.forEach(group => {
+            const sorted = group.teams.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                if (b.goalDifference !== a.goalDifference) return b.goalDifference - a.goalDifference;
+                return b.goalsFor - a.goalsFor;
+            });
+
+            html += `
+                <div class="group-standings">
+                    <h4>Group ${group.name}</h4>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>P</th>
+                                <th>W</th>
+                                <th>D</th>
+                                <th>L</th>
+                                <th>GF</th>
+                                <th>GA</th>
+                                <th>GD</th>
+                                <th>Pts</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            sorted.forEach((team, i) => {
+                const qualified = i < this.tournament.settings.teamsAdvancing ? 'class="qualified"' : '';
+                html += `
+                    <tr ${qualified}>
+                        <td>${i + 1}</td>
+                        <td>${team.name}</td>
+                        <td>${team.played}</td>
+                        <td>${team.wins}</td>
+                        <td>${team.draws}</td>
+                        <td>${team.losses}</td>
+                        <td>${team.goalsFor}</td>
+                        <td>${team.goalsAgainst}</td>
+                        <td>${team.goalDifference >= 0 ? '+' : ''}${team.goalDifference}</td>
+                        <td><strong>${team.points}</strong></td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        });
+
+        container.innerHTML = html;
     }
 
-    renderBracket() {
+    renderKnockoutBracket() {
         const container = document.getElementById('bracket-content');
         if (!container) return;
 
         if (this.tournament.settings.format === 'group') {
-            container.innerHTML = '<p>No knockout stage in this tournament</p>';
+            container.innerHTML = '<p style="color: #666; padding: 2rem; text-align: center;">No knockout stage in this tournament</p>';
             return;
         }
 
-        container.innerHTML = '<div style="padding: 2rem; text-align: center; background: #f3f7fa; border-radius: 8px;">🏆 Interactive bracket visualization<br><small>Knockout matches will appear here</small></div>';
+        const knockoutMatches = this.tournament.matches.filter(m => m.stage === 'knockout');
+        if (knockoutMatches.length === 0) {
+            container.innerHTML = '<p style="color: #666; padding: 2rem; text-align: center;">No knockout matches scheduled yet</p>';
+            return;
+        }
+
+        // Group matches by stage
+        const stages = this.tournament.settings.knockoutStages;
+        const stageOrder = ['last32', 'last16', 'quarters', 'semis', 'third-place', 'final'];
+        const sortedStages = stages.sort((a, b) => stageOrder.indexOf(a) - stageOrder.indexOf(b));
+
+        let html = '<div class="bracket-container">';
+
+        sortedStages.forEach(stage => {
+            const stageMatches = knockoutMatches.filter(m => m.knockoutStage === stage);
+            if (stageMatches.length === 0) return;
+
+            const stageNames = {
+                'last32': 'Round of 32',
+                'last16': 'Round of 16',
+                'quarters': 'Quarterfinals',
+                'semis': 'Semifinals',
+                'third-place': '3rd Place Match',
+                'final': 'Final'
+            };
+
+            html += `
+                <div class="bracket-stage">
+                    <h3 class="bracket-stage-title">${stageNames[stage]}</h3>
+                    <div class="bracket-matches">
+            `;
+
+            stageMatches.forEach(match => {
+                const homeWinner = match.homeScore !== null && match.awayScore !== null && match.homeScore > match.awayScore ? 'winner' : '';
+                const awayWinner = match.homeScore !== null && match.awayScore !== null && match.awayScore > match.homeScore ? 'winner' : '';
+
+                html += `
+                    <div class="bracket-match">
+                        <div class="bracket-match-header">
+                            Match ${match.matchNumber}${match.leg ? ` - Leg ${match.leg}` : ''}
+                        </div>
+                        <div class="bracket-team ${homeWinner}">
+                            <span class="bracket-team-name">${match.homeTeam.name}</span>
+                            <span class="bracket-team-score">${match.homeScore !== null ? match.homeScore : '-'}</span>
+                        </div>
+                        <div class="bracket-team ${awayWinner}">
+                            <span class="bracket-team-name">${match.awayTeam.name}</span>
+                            <span class="bracket-team-score">${match.awayScore !== null ? match.awayScore : '-'}</span>
+                        </div>
+                        <button class="btn btn-small btn-primary" onclick="manager.openScoreModal(${match.id})" style="margin-top: 0.5rem; width: 100%;">
+                            ${match.homeScore !== null ? '✏️ Edit' : '⚽ Enter Score'}
+                        </button>
+                    </div>
+                `;
+            });
+
+            html += `
+                    </div>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        container.innerHTML = html;
     }
 
     renderStatistics() {
-        const container = document.getElementById('stats-content');
+        const container = document.getElementById('statistics-content');
         if (!container) return;
 
-        const completedMatches = this.tournament.matches.filter(m => m.status === 'completed');
-        const totalGoals = completedMatches.reduce((sum, m) => sum + (m.homeScore || 0) + (m.awayScore || 0), 0);
-        const avgGoals = completedMatches.length > 0 ? (totalGoals / completedMatches.length).toFixed(2) : 0;
+        const totalMatches = this.tournament.matches.length;
+        const completedMatches = this.tournament.matches.filter(m => m.status === 'completed').length;
+        const totalGoals = this.tournament.matches
+            .filter(m => m.homeScore !== null && m.awayScore !== null)
+            .reduce((sum, m) => sum + m.homeScore + m.awayScore, 0);
 
-        container.innerHTML = `
+        const groupMatches = this.tournament.matches.filter(m => m.stage === 'group');
+        const knockoutMatches = this.tournament.matches.filter(m => m.stage === 'knockout');
+        const completedGroupMatches = groupMatches.filter(m => m.status === 'completed').length;
+        const completedKnockoutMatches = knockoutMatches.filter(m => m.status === 'completed').length;
+
+        const html = `
             <div class="stats-grid">
                 <div class="stat-card">
-                    <div class="stat-value">${this.tournament.matches.length}</div>
+                    <div class="stat-value">${totalMatches}</div>
                     <div class="stat-label">Total Matches</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${completedMatches.length}</div>
+                    <div class="stat-value">${completedMatches}</div>
                     <div class="stat-label">Completed</div>
                 </div>
                 <div class="stat-card">
@@ -1014,30 +1416,38 @@ class TournamentManager {
                     <div class="stat-label">Total Goals</div>
                 </div>
                 <div class="stat-card">
-                    <div class="stat-value">${avgGoals}</div>
-                    <div class="stat-label">Avg Goals/Match</div>
+                    <div class="stat-value">${completedMatches > 0 ? (totalGoals / completedMatches).toFixed(1) : 0}</div>
+                    <div class="stat-label">Goals per Match</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${completedGroupMatches}</div>
+                    <div class="stat-label">Group Stage Completed</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${completedKnockoutMatches}</div>
+                    <div class="stat-label">Knockout Completed</div>
                 </div>
             </div>
         `;
+
+        container.innerHTML = html;
     }
 
     // CSV Export functions
     exportScheduleCSV() {
-        if (this.tournament.matchDays.length === 0) {
-            alert('No schedule to export. Generate tournament first.');
+        if (this.tournament.matches.length === 0) {
+            alert('No matches to export');
             return;
         }
 
-        let csv = 'Match Day,Field,Stage,Group/Round,Home Team,Away Team,Duration (min)\n';
-        
-        this.tournament.matchDays.forEach(matchDay => {
-            matchDay.matches.forEach(match => {
-                const groupInfo = match.stage === 'group' ? 
-                    `${match.groupName} R${match.round}` : 
-                    match.stageName + (match.leg ? ` Leg ${match.leg}` : '');
-                
-                csv += `${match.matchDay},${match.field},${match.stage},${groupInfo},${match.homeTeam.name},${match.awayTeam.name},${match.duration}\n`;
-            });
+        let csv = 'Match Day,Field,Stage,Group/Round,Home Team,Away Team,Home Score,Away Score,Duration,Status\n';
+
+        this.tournament.matches.forEach(match => {
+            const stage = match.stage === 'group' ? `Group ${match.groupName}` : match.stageName;
+            const homeScore = match.homeScore !== null ? match.homeScore : '';
+            const awayScore = match.awayScore !== null ? match.awayScore : '';
+            
+            csv += `${match.matchDay},${match.field},"${stage}","${match.round || ''}","${match.homeTeam.name}","${match.awayTeam.name}",${homeScore},${awayScore},${match.duration},${match.status}\n`;
         });
 
         this.downloadCSV(csv, 'tournament_schedule.csv');
@@ -1045,12 +1455,12 @@ class TournamentManager {
 
     exportStandingsCSV() {
         if (this.tournament.groups.length === 0) {
-            alert('No standings to export.');
+            alert('No standings to export');
             return;
         }
 
-        let csv = 'Group,Position,Team,Played,Won,Drawn,Lost,Goals For,Goals Against,Goal Difference,Points\n';
-        
+        let csv = 'Group,Position,Team,Played,Wins,Draws,Losses,Goals For,Goals Against,Goal Difference,Points\n';
+
         this.tournament.groups.forEach(group => {
             const sorted = group.teams.sort((a, b) => {
                 if (b.points !== a.points) return b.points - a.points;
@@ -1059,7 +1469,7 @@ class TournamentManager {
             });
 
             sorted.forEach((team, i) => {
-                csv += `${group.name},${i + 1},${team.name},${team.played},${team.wins},${team.draws},${team.losses},${team.goalsFor},${team.goalsAgainst},${team.goalDifference},${team.points}\n`;
+                csv += `${group.name},${i + 1},"${team.name}",${team.played},${team.wins},${team.draws},${team.losses},${team.goalsFor},${team.goalsAgainst},${team.goalDifference},${team.points}\n`;
             });
         });
 
@@ -1068,20 +1478,17 @@ class TournamentManager {
 
     exportResultsCSV() {
         const completedMatches = this.tournament.matches.filter(m => m.status === 'completed');
-        
+
         if (completedMatches.length === 0) {
-            alert('No completed matches to export.');
+            alert('No completed matches to export');
             return;
         }
 
-        let csv = 'Match ID,Stage,Group/Round,Home Team,Away Team,Home Score,Away Score,Match Day,Field\n';
-        
+        let csv = 'Match Day,Field,Stage,Group/Round,Home Team,Home Score,Away Score,Away Team,Duration\n';
+
         completedMatches.forEach(match => {
-            const groupInfo = match.stage === 'group' ? 
-                `${match.groupName} R${match.round}` : 
-                match.stageName;
-            
-            csv += `${match.id},${match.stage},${groupInfo},${match.homeTeam.name},${match.awayTeam.name},${match.homeScore},${match.awayScore},${match.matchDay || 'N/A'},${match.field || 'N/A'}\n`;
+            const stage = match.stage === 'group' ? `Group ${match.groupName}` : match.stageName;
+            csv += `${match.matchDay},${match.field},"${stage}","${match.round || ''}","${match.homeTeam.name}",${match.homeScore},${match.awayScore},"${match.awayTeam.name}",${match.duration}\n`;
         });
 
         this.downloadCSV(csv, 'tournament_results.csv');
@@ -1102,8 +1509,8 @@ class TournamentManager {
     }
 }
 
-// Initialize tournament manager when page loads
-let tournament;
+// Initialize tournament manager
+let manager;
 document.addEventListener('DOMContentLoaded', () => {
-    tournament = new TournamentManager();
+    manager = new TournamentManager();
 });

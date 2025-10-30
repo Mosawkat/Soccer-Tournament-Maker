@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Tournament Manager Pro</title>
+    <title>⚽ Tournament Manager Pro</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -17,27 +17,26 @@
 
         <nav class="tab-nav">
             <button class="tab-btn active" data-tab="setup">📋 Setup</button>
-            <button class="tab-btn" data-tab="groups" id="groups-tab">👥 Groups</button>
-            <button class="tab-btn" data-tab="knockout" id="knockout-tab">🏆 Knockout</button>
+            <button class="tab-btn" data-tab="groups" id="groups-tab" style="display: none;">👥 Groups</button>
+            <button class="tab-btn" data-tab="knockout" id="knockout-tab" style="display: none;">🏆 Knockout</button>
             <button class="tab-btn" data-tab="schedule">📅 Schedule</button>
             <button class="tab-btn" data-tab="live">🔴 Live</button>
             <button class="tab-btn" data-tab="results">📊 Results</button>
         </nav>
 
-        <!-- SETUP TAB -->
-        <div id="setup" class="tab-content active">
+        <!-- Setup Tab -->
+        <div class="tab-content active" id="setup">
             <div class="card">
                 <h2>Tournament Setup</h2>
-                
                 <div class="form-group">
                     <label for="num-teams">Number of Teams *</label>
-                    <input type="number" id="num-teams" min="2" max="64" placeholder="Enter 2-64">
+                    <input type="number" id="num-teams" min="2" max="64" placeholder="Enter number of teams">
                     <span class="help-text">Enter between 2-64 teams</span>
                 </div>
 
                 <div class="form-group">
                     <label for="players-per-team">Players per Team *</label>
-                    <input type="number" id="players-per-team" min="1" placeholder="e.g., 11 for full field">
+                    <input type="number" id="players-per-team" min="1" placeholder="e.g., 5, 7, or 11">
                     <span class="help-text">Typical: 11 for full field, 5-7 for small sided</span>
                 </div>
 
@@ -55,15 +54,15 @@
             </div>
         </div>
 
-        <!-- GROUPS TAB -->
-        <div id="groups" class="tab-content">
+        <!-- Groups Tab -->
+        <div class="tab-content" id="groups">
             <div class="card">
                 <h2>Group Stage Settings</h2>
-
+                
                 <div class="form-group">
                     <label for="num-groups">Number of Groups</label>
-                    <input type="number" id="num-groups" min="1" max="16">
-                    <span class="help-text suggestions" id="groups-suggestion"></span>
+                    <input type="number" id="num-groups" min="2" max="8">
+                    <div class="suggestions" id="groups-suggestion"></div>
                 </div>
 
                 <div class="form-group">
@@ -83,12 +82,12 @@
                         <option value="3">Top 3</option>
                         <option value="4">Top 4</option>
                     </select>
-                    <span class="help-text suggestions" id="knockout-suggestion"></span>
+                    <div class="suggestions" id="knockout-suggestion"></div>
                 </div>
 
                 <div class="form-group">
                     <label for="group-game-duration">Group Game Duration (minutes)</label>
-                    <input type="number" id="group-game-duration" min="1" placeholder="e.g., 40">
+                    <input type="number" id="group-game-duration" min="1" placeholder="e.g., 20, 30, 45">
                 </div>
 
                 <div class="scoring-system">
@@ -118,8 +117,8 @@
             </div>
         </div>
 
-        <!-- KNOCKOUT TAB -->
-        <div id="knockout" class="tab-content">
+        <!-- Knockout Tab -->
+        <div class="tab-content" id="knockout">
             <div class="card">
                 <h2>Knockout Stage Settings</h2>
 
@@ -146,7 +145,7 @@
 
                 <div class="form-group">
                     <label for="knockout-game-duration">Knockout Game Duration (minutes)</label>
-                    <input type="number" id="knockout-game-duration" min="1" placeholder="e.g., 60">
+                    <input type="number" id="knockout-game-duration" min="1" placeholder="e.g., 30, 45, 90">
                 </div>
 
                 <div class="form-group">
@@ -156,7 +155,7 @@
                     </label>
                 </div>
 
-                <div class="bracket-preview" id="bracket-preview">
+                <div class="bracket-preview" id="knockout-preview">
                     Knockout bracket preview will appear here
                 </div>
 
@@ -165,14 +164,14 @@
             </div>
         </div>
 
-        <!-- SCHEDULE TAB -->
-        <div id="schedule" class="tab-content">
+        <!-- Schedule Tab -->
+        <div class="tab-content" id="schedule">
             <div class="card">
                 <h2>Tournament Schedule</h2>
 
                 <div class="form-group">
                     <label for="num-fields">Number of Fields *</label>
-                    <input type="number" id="num-fields" min="1" placeholder="How many games can run simultaneously?">
+                    <input type="number" id="num-fields" min="1" placeholder="e.g., 2, 4, 6">
                     <span class="help-text">Games played simultaneously</span>
                 </div>
 
@@ -183,7 +182,7 @@
 
                 <div class="timer-section">
                     <h3>Universal Timer</h3>
-                    <div class="timer-display" id="timer-display">00:00:00</div>
+                    <div class="timer-display">00:00:00</div>
                     <div class="timer-controls">
                         <button class="btn btn-success btn-small" id="timer-start">▶ Start</button>
                         <button class="btn btn-secondary btn-small" id="timer-pause">⏸ Pause</button>
@@ -195,20 +194,16 @@
                     Tournament overview will appear here
                 </div>
 
-                <div style="margin-top: 2rem;">
-                    <button class="btn btn-secondary" id="schedule-back">← Back</button>
-                    <button class="btn btn-success" id="generate-tournament">⚡ Generate Tournament</button>
-                    <button class="btn btn-primary" id="export-schedule">📥 Export Schedule</button>
-                </div>
-
-                <div id="schedule-display" style="margin-top: 2rem;">
-                    <!-- Match days will be rendered here -->
-                </div>
+                <button class="btn btn-secondary" id="schedule-back">← Back</button>
+                <button class="btn btn-success" id="generate-tournament">⚡ Generate Tournament</button>
+                <button class="btn btn-primary" id="export-schedule">📥 Export Schedule</button>
             </div>
+
+            <div id="schedule-display"></div>
         </div>
 
-        <!-- LIVE TAB -->
-        <div id="live" class="tab-content">
+        <!-- Live Tab -->
+        <div class="tab-content" id="live">
             <div class="live-header">
                 <h2>🔴 Live Tournament</h2>
                 <div class="timer-display">00:00:00</div>
@@ -217,54 +212,70 @@
             <div class="live-grid">
                 <div class="standings-section">
                     <h3>📊 Group Standings</h3>
-                    <div id="group-standings-container">
-                        No standings available yet
-                    </div>
+                    <div id="live-standings">No standings available yet</div>
                 </div>
 
                 <div class="matches-section">
                     <h3>⚽ Current Matches</h3>
-                    <div id="current-matches">
-                        No matches in progress
-                    </div>
+                    <div id="live-current">No matches in progress</div>
 
                     <h3 style="margin-top: 2rem;">📋 Upcoming Matches</h3>
-                    <div id="upcoming-matches">
-                        No upcoming matches
-                    </div>
+                    <div id="live-upcoming">No upcoming matches</div>
                 </div>
             </div>
         </div>
 
-        <!-- RESULTS TAB -->
-        <div id="results" class="tab-content">
+        <!-- Results Tab -->
+        <div class="tab-content" id="results">
             <div class="card">
                 <h2>Tournament Results</h2>
 
                 <div class="results-tabs">
                     <button class="result-tab active" data-result="standings">🏅 Final Standings</button>
                     <button class="result-tab" data-result="bracket">🏆 Bracket</button>
-                    <button class="result-tab" data-result="statistics">📈 Statistics</button>
+                    <button class="result-tab" data-result="stats">📈 Statistics</button>
                 </div>
 
-                <div style="margin-bottom: 1rem;">
+                <div class="result-content active" id="standings-content">
                     <button class="btn btn-primary" id="export-standings">📥 Export Standings</button>
                     <button class="btn btn-primary" id="export-results">📥 Export Results</button>
+                    <div id="final-standings">Final standings will appear here after tournament completion</div>
                 </div>
 
-                <div id="standings-content" class="result-content active">
-                    <div id="standings-final-container">
-                        Final standings will appear here after tournament completion
-                    </div>
-                </div>
-
-                <div id="bracket-content" class="result-content">
+                <div class="result-content" id="bracket-content">
                     Knockout bracket will appear here
                 </div>
 
-                <div id="stats-content" class="result-content">
+                <div class="result-content" id="statistics-content">
                     Tournament statistics will appear here
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Score Editing Modal -->
+    <div id="score-modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="score-modal-match-title">Edit Match Score</h3>
+                <span class="modal-close" id="score-modal-close">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="score-input-grid">
+                    <div class="score-input-item">
+                        <label id="score-home-team">Home Team</label>
+                        <input type="number" id="score-home-input" min="0" placeholder="0">
+                    </div>
+                    <div class="score-vs">-</div>
+                    <div class="score-input-item">
+                        <label id="score-away-team">Away Team</label>
+                        <input type="number" id="score-away-input" min="0" placeholder="0">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" id="score-modal-cancel">Cancel</button>
+                <button class="btn btn-success" id="score-modal-save">💾 Save Score</button>
             </div>
         </div>
     </div>
